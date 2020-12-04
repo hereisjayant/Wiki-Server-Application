@@ -12,13 +12,11 @@ public class FSFTBuffer<T extends Bufferable> {
     /* the default timeout value is 3600s */
     public static final int DTIMEOUT = 3600;
 
-    /* TODO: Implement this datatype */
+    private final List<T> bufferList;
 
-    private List<T> bufferList;
+    private final Map<String, Long> timeMap;
 
-    private Map<String, Long> timeMap;
-
-    private int capacity, timeout;
+    private final int capacity, timeout;
 
     /*
         Abstraction Function:
@@ -47,6 +45,16 @@ public class FSFTBuffer<T extends Bufferable> {
                 is less recently used than bufferList[i+1].
 
             capacity and timeout must both be positive integers
+
+        Thread Safety Argument:
+            This class is thread safe as it's immutable:
+                - bufferList, timeMap, capacity, and timeout are final variables
+                - bufferList and timeMap are mutable but are encapsulated in FSFTBuffer object and
+                  are never exposed to client
+
+            bufferList and timeMap point to threadsafe list and map data types
+
+            all access to these variables happen within FSFTBuffer methods, which are guarded by FSFTBuffer's lock
      */
 
 
@@ -101,7 +109,6 @@ public class FSFTBuffer<T extends Bufferable> {
      *                 be in the buffer before it times out
      */
     public FSFTBuffer(int capacity, int timeout) {
-        // TODO: implement this constructor
         this.capacity = capacity;
         this.timeout = timeout;
         bufferList = Collections.synchronizedList(new ArrayList<>());
@@ -123,7 +130,6 @@ public class FSFTBuffer<T extends Bufferable> {
      * object to make room for the new object.
      */
     public synchronized boolean put(T t) {
-        // TODO: implement this method
         evictEntries();
         checkRep();
 
@@ -151,10 +157,6 @@ public class FSFTBuffer<T extends Bufferable> {
      * buffer
      */
     public synchronized T get(String id) throws IllegalAccessException{
-        /* TODO: change this */
-        /* Do not return null. Throw a suitable checked exception when an object
-            is not in the cache. You can add the checked exception to the method
-            signature. */
         evictEntries();
         checkRep();
 
@@ -204,7 +206,6 @@ public class FSFTBuffer<T extends Bufferable> {
      * @return true if successful and false otherwise
      */
     public synchronized boolean touch(String id) {
-        /* TODO: Implement this method */
         evictEntries();
         checkRep();
 
@@ -231,7 +232,6 @@ public class FSFTBuffer<T extends Bufferable> {
      * @return true if successful and false otherwise
      */
     public synchronized boolean update(T t) {
-        /* TODO: implement this method */
         evictEntries();
         checkRep();
 
@@ -264,12 +264,5 @@ public class FSFTBuffer<T extends Bufferable> {
             timeMap.remove(id);
             bufferList.removeIf(entry -> entry.id().equals(id));
         }
-    }
-
-    @Override
-    public String toString() {
-        return "FSFTBuffer{" +
-                "bufferList: " + bufferList +
-                '}';
     }
 }
