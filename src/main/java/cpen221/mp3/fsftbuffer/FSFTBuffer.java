@@ -1,6 +1,8 @@
 package cpen221.mp3.fsftbuffer;
 
 import java.util.*;
+import java.util.Collections;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class FSFTBuffer<T extends Bufferable> {
 
@@ -102,8 +104,8 @@ public class FSFTBuffer<T extends Bufferable> {
         // TODO: implement this constructor
         this.capacity = capacity;
         this.timeout = timeout;
-        bufferList = new LinkedList<>();
-        timeMap = new HashMap<>();
+        bufferList = Collections.synchronizedList(new ArrayList<>());
+        timeMap = new ConcurrentHashMap<>();  //supposed to be a better implementation than Collections.synchronizedMap
 
         checkRep();
     }
@@ -120,7 +122,7 @@ public class FSFTBuffer<T extends Bufferable> {
      * If the buffer is full then remove the least recently accessed
      * object to make room for the new object.
      */
-    public boolean put(T t) {
+    public synchronized boolean put(T t) {
         // TODO: implement this method
         evictEntries();
         checkRep();
@@ -148,7 +150,7 @@ public class FSFTBuffer<T extends Bufferable> {
      * @return the object that matches the identifier from the
      * buffer
      */
-    public T get(String id) throws IllegalAccessException{
+    public synchronized T get(String id) throws IllegalAccessException{
         /* TODO: change this */
         /* Do not return null. Throw a suitable checked exception when an object
             is not in the cache. You can add the checked exception to the method
@@ -201,7 +203,7 @@ public class FSFTBuffer<T extends Bufferable> {
      * @param id the identifier of the object to "touch"
      * @return true if successful and false otherwise
      */
-    public boolean touch(String id) {
+    public synchronized boolean touch(String id) {
         /* TODO: Implement this method */
         evictEntries();
         checkRep();
@@ -228,7 +230,7 @@ public class FSFTBuffer<T extends Bufferable> {
      * @param t the object to update
      * @return true if successful and false otherwise
      */
-    public boolean update(T t) {
+    public synchronized boolean update(T t) {
         /* TODO: implement this method */
         evictEntries();
         checkRep();
@@ -248,7 +250,7 @@ public class FSFTBuffer<T extends Bufferable> {
     /**
      * Evicts objects that have passed the timeout from the bufferList
      */
-    private void evictEntries() {
+    private synchronized void evictEntries() {
         Long currentTime = System.currentTimeMillis();
         List<String> ids = new LinkedList<>();
         for (String id : timeMap.keySet()) {
