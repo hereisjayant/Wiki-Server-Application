@@ -1,6 +1,8 @@
 package cpen221.mp3;
 
 import cpen221.mp3.fsftbuffer.*;
+import cpen221.mp3.wikimediator.WikiMediator;
+
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -479,5 +481,60 @@ public class Tests {
         assertTrue(touch2);
 
     }
+
+    /* Start : Task 3 Tests */
+
+    @Test
+    public void testsearchLimit1() {
+
+        WikiMediator wikiMediator = new WikiMediator();
+        List<String> titles = wikiMediator.search("Chris Piche",1);
+
+        assertEquals(1,titles.size());
+        assertEquals("Chris Piche",titles.get(0));
+    }
+
+    @Test
+    public void testsearchLimit2() {
+
+        WikiMediator wikiMediator = new WikiMediator();
+        List<String> titles = wikiMediator.search("Chris Piche",2);
+
+        assertEquals(2,titles.size());
+        assertEquals("Talk:Chris Piche",titles.get(1));
+    }
+
+    @Test
+    public void testsearchLimit3() {
+
+        WikiMediator wikiMediator = new WikiMediator();
+        List<String> titles = wikiMediator.search("Chris Piche",3);
+
+        assertEquals(3,titles.size());
+        assertEquals("Eyeball Chat",titles.get(2));
+    }
+
+    @Test
+    public void testsearchLimit4() {
+
+        WikiMediator wikiMediator = new WikiMediator();
+        List<String> titles = wikiMediator.search("Chris Piche",4);
+
+        assertEquals(4,titles.size());
+        assertEquals("Bents, Saskatchewan",titles.get(3));
+    }
+
+    @Test
+    public void testsearchLimit5() {
+
+        WikiMediator wikiMediator = new WikiMediator();
+        List<String> titles = wikiMediator.search("Chris Piche",5);
+
+        assertEquals(5,titles.size());
+        assertEquals("Temiscaming Royals",titles.get(4));
+    }
+
+    /* End : Task 3 Tests */
+
 
 }
