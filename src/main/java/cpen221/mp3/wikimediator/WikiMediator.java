@@ -17,6 +17,13 @@ public class WikiMediator {
     public WikiMediator() {
         wiki = new Wiki.Builder().build();
     }
+
+    /**
+     * Compares the given query with the Wikipedia query
+     * @param query
+     * @param limit
+     * @return a list of page titles that matches the query
+     */
     public List<String> search(String query, int limit){
         updateTimeWiseTrack(query);
         calculateMaximumRequestSlot();
@@ -29,6 +36,11 @@ public class WikiMediator {
         return wiki.search(query, limit);
     }
 
+    /**
+     * Compares the text of pageTitle with the Wikipedia text
+     * @param pageTitle
+     * @return text that matches pageTitle
+     */
     public String getPage(String pageTitle){
         updateTimeWiseTrack(pageTitle);
         calculateMaximumRequestSlot();
@@ -41,6 +53,11 @@ public class WikiMediator {
         return wiki.getPageText(pageTitle);
     }
 
+    /**
+     * Calculates the most common string in non-increasing order
+     * @param limit
+     * @return the most common string
+     */
     public List<String> zeitgeist(int limit){
         calculateMaximumRequestSlot();
         List<String> result = new ArrayList<String>();
@@ -81,6 +98,11 @@ public class WikiMediator {
         return result;
     }
 
+    /**
+     * Calculates the number of most frequently made requests
+     * @param limit
+     * @return the most frequent requests
+     */
     public List<String> trending(int limit){
         calculateMaximumRequestSlot();
         List<String> result = new ArrayList<String>();
@@ -133,11 +155,19 @@ public class WikiMediator {
         return result;
     }
 
+    /**
+     *  Calculates the number of request count
+     * @return request count
+     */
     public int peakLoad30s() {
         calculateMaximumRequestSlot();
         return maximumRequestSlot;
     }
 
+    /**
+     * Updates time for a given key
+     * @param key
+     */
     public void updateTimeWiseTrack(String key){
         int value = 0;
         if(F1.containsKey(key)){
@@ -148,6 +178,10 @@ public class WikiMediator {
 
         F2.put((System.currentTimeMillis() / 1000),key);
     }
+
+    /**
+     * Calculates the maximum number of request
+     */
     public void calculateMaximumRequestSlot() {
         int value = 0;
         long timeSlot = (System.currentTimeMillis() / 1000) / 30;
