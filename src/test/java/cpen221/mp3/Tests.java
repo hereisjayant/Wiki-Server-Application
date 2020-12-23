@@ -7,6 +7,7 @@ import org.fastily.jwiki.core.Wiki;
 import org.fastily.jwiki.dwrap.Contrib;
 import org.junit.Test;
 
+import java.sql.Timestamp;
 import java.util.*;
 
 import static org.junit.Assert.*;
@@ -483,10 +484,10 @@ public class Tests {
 
     }
 
-    /* Start : Task 3 Tests */
+    /* Task 3 Tests */
 
     @Test
-    public void testsearchLimit1() {
+    public void testSearchLimit1() {
 
         WikiMediator wikiMediator = new WikiMediator();
         List<String> titles = wikiMediator.search("Chris Piche",1);
@@ -496,7 +497,7 @@ public class Tests {
     }
 
     @Test
-    public void testsearchLimit2() {
+    public void testSearchLimit2() {
 
         WikiMediator wikiMediator = new WikiMediator();
         List<String> titles = wikiMediator.search("Chris Piche",2);
@@ -506,33 +507,153 @@ public class Tests {
     }
 
     @Test
-    public void testsearchLimit3() {
+    public void testSearchLimit5() {
 
         WikiMediator wikiMediator = new WikiMediator();
-        List<String> titles = wikiMediator.search("Chris Piche",3);
 
-        assertEquals(3,titles.size());
-        assertEquals("Eyeball Chat",titles.get(2));
-    }
+        List<String> expectedTitles = new LinkedList<>(Arrays.asList("Chris Piche", "Talk:Chris Piche",
+                        "Eyeball Chat", "Bents, Saskatchewan", "Temiscaming Royals"));
 
-    @Test
-    public void testsearchLimit4() {
-
-        WikiMediator wikiMediator = new WikiMediator();
-        List<String> titles = wikiMediator.search("Chris Piche",4);
-
-        assertEquals(4,titles.size());
-        assertEquals("Bents, Saskatchewan",titles.get(3));
-    }
-
-    @Test
-    public void testsearchLimit5() {
-
-        WikiMediator wikiMediator = new WikiMediator();
         List<String> titles = wikiMediator.search("Chris Piche",5);
 
         assertEquals(5,titles.size());
-        assertEquals("Temiscaming Royals",titles.get(4));
+        assertEquals(expectedTitles,titles);
+    }
+
+    @Test
+    public void testSearchExpandingLimit() {
+        WikiMediator wikiMediator = new WikiMediator();
+        List<String> titles2 = wikiMediator.search("Chris Piche", 2);
+        List<String> expectedTitles2 = new LinkedList<>(Arrays.asList("Chris Piche", "Talk:Chris Piche"));
+        assertEquals(expectedTitles2, titles2);
+
+        List<String> titles5 = wikiMediator.search("Chris Piche", 5);
+        List<String> expectedTitles5 = new LinkedList<>(Arrays.asList("Chris Piche", "Talk:Chris Piche",
+                "Eyeball Chat", "Bents, Saskatchewan", "Temiscaming Royals"));
+        assertEquals(titles5, expectedTitles5);
+    }
+
+    @Test
+    public void testSearchShrinkingLimit() {
+        WikiMediator wikiMediator = new WikiMediator();
+        List<String> titles5 = wikiMediator.search("Chris Piche", 5);
+        List<String> expectedTitles5 = new LinkedList<>(Arrays.asList("Chris Piche", "Talk:Chris Piche",
+                "Eyeball Chat", "Bents, Saskatchewan", "Temiscaming Royals"));
+        assertEquals(titles5, expectedTitles5);
+
+        List<String> titles2 = wikiMediator.search("Chris Piche", 2);
+        List<String> expectedTitles2 = new LinkedList<>(Arrays.asList("Chris Piche", "Talk:Chris Piche"));
+        assertEquals(expectedTitles2, titles2);
+    }
+
+    @Test
+    public void testGetPages1() {
+        WikiMediator wikiMediator = new WikiMediator();
+
+        String expectedText = "This is the page corresponding to the user Vijeethvp.\n" +
+                "This is used largely for testing purposes of a software project.\n" +
+                "\n" +
+                "[[Category: Student]]";
+
+        String pageText = wikiMediator.getPage("User:Vijeethvp");
+
+        assertEquals(expectedText, pageText);
+    }
+
+    @Test
+    public void testGetPages2() {
+        /* White box testing */
+        WikiMediator wikiMediator = new WikiMediator();
+
+        String expectedText = "This is the page corresponding to the user Vijeethvp.\n" +
+                "This is used largely for testing purposes of a software project.\n" +
+                "\n" +
+                "[[Category: Student]]";
+
+        String pageText = wikiMediator.getPage("User:Vijeethvp");
+        assertEquals(expectedText, pageText);
+
+        /* This pageText2 will be retrieved from the cache */
+        String pageText2 = wikiMediator.getPage("User:Vijeethvp");
+        assertEquals(expectedText, pageText2);
+    }
+
+    @Test
+    public void testZeitgeist1() {
+        WikiMediator wikiMediator = new WikiMediator();
+
+        wikiMediator.search("Hello", 10);
+        sleep(0.5);
+        wikiMediator.getPage("User:Vijeethvp");
+        sleep(0.5);
+        wikiMediator.search("Hello", 4);
+        sleep(0.5);
+        wikiMediator.search("Hello", 3);
+        sleep(0.5);
+        wikiMediator.getPage("User:Vijeethvp");
+        sleep(0.5);
+        wikiMediator.search("Hello", 4);
+        sleep(0.5);
+        wikiMediator.getPage("User:AllyD");
+        sleep(0.5);
+
+
+        List<String> expectedList = new LinkedList<>(Arrays.asList("Hello", "User:Vijeethvp", "User:AllyD"));
+        List<String> actualList = wikiMediator.zeitgeist(5);
+
+        assertEquals(expectedList, actualList);
+    }
+
+    @Test
+    public void testZeitgeist2() {
+        WikiMediator wikiMediator = new WikiMediator();
+
+        wikiMediator.search("Hello", 10);
+        wikiMediator.getPage("User:Vijeethvp");
+        wikiMediator.search("Hello", 4);
+        wikiMediator.search("Hello", 3);
+        wikiMediator.getPage("User:Vijeethvp");
+        wikiMediator.search("Hello", 4);
+        wikiMediator.getPage("User:AllyD");
+
+
+        List<String> expectedList = new LinkedList<>(Arrays.asList("Hello", "User:Vijeethvp", "User:AllyD"));
+        List<String> actualList = wikiMediator.zeitgeist(5);
+
+        assertEquals(expectedList, actualList);
+    }
+
+    @Test
+    public void testZeitgeist3() {
+        WikiMediator wikiMediator = new WikiMediator();
+
+        wikiMediator.search("Hello", 10);
+        wikiMediator.getPage("User:Vijeethvp");
+        wikiMediator.search("Hello", 4);
+        sleep(0.1);
+        wikiMediator.search("Hello", 3);
+        wikiMediator.getPage("User:Vijeethvp");
+        wikiMediator.search("Hello", 4);
+        wikiMediator.getPage("User:AllyD");
+        sleep(0.4);
+        wikiMediator.search("Blue", 10);
+        wikiMediator.getPage("User:Vijeethvp");
+        wikiMediator.search("Blue", 4);
+        wikiMediator.search("Blue", 3);
+        wikiMediator.getPage("User:Vijeethvp");
+        sleep(0.3);
+        wikiMediator.search("Hello", 4);
+        wikiMediator.getPage("User:AllyD");
+
+
+        List<String> expectedList = new LinkedList<>(Arrays.asList("Hello", "User:Vijeethvp", "Blue", "User:AllyD"));
+        List<String> actualList = wikiMediator.zeitgeist(5);
+
+        assertEquals(expectedList, actualList);
+
+        List<String> expectedList2 = new LinkedList<>(Arrays.asList("Hello", "User:Vijeethvp"));
+        List<String> actualList2 = wikiMediator.zeitgeist(2);
+        assertEquals(expectedList2, actualList2);
     }
 
     @Test
@@ -553,7 +674,96 @@ public class Tests {
         assertEquals(expected,actual.charAt(30));
     }
 
-    /* End : Task 3 Tests */
+    @Test
+    public void testTrending1() {
+        WikiMediator wikiMediator = new WikiMediator();
+
+        wikiMediator.search("Hello", 10);
+        wikiMediator.getPage("User:Vijeethvp");
+        sleep(0.25);
+        wikiMediator.search("Blue", 4);
+        sleep(0.25);
+        wikiMediator.search("Hello", 3);
+        wikiMediator.getPage("User:Vijeethvp");
+        sleep(0.25);
+        wikiMediator.search("Hello", 4);
+        wikiMediator.getPage("User:AllyD");
+        sleep(0.25);
+        wikiMediator.getPage("User:AllyD");
+
+        List<String> expectedList = new LinkedList<>(Arrays.asList("User:AllyD", "Hello", "User:Vijeethvp", "Blue"));
+        List<String> actualList = wikiMediator.trending(10);
+
+    }
+
+    @Test
+    public void testTrending2() {
+        WikiMediator wikiMediator = new WikiMediator();
+
+        wikiMediator.search("Hello", 10);
+        wikiMediator.getPage("User:Vijeethvp");
+        sleep(0.25);
+        wikiMediator.search("Blue", 4);
+        sleep(0.25);
+        wikiMediator.search("Hello", 3);
+        wikiMediator.getPage("User:Vijeethvp");
+        sleep(0.25);
+        wikiMediator.search("Hello", 4);
+        wikiMediator.getPage("User:AllyD");
+        sleep(0.25);
+        wikiMediator.getPage("User:AllyD");
+
+        List<String> expectedList = new LinkedList<>(Collections.emptyList());
+        List<String> actualList = wikiMediator.trending(0);
+
+        assertEquals(expectedList, actualList);
+    }
+
+    @Test
+    public void testPeakLoad30s1() {
+        WikiMediator wikiMediator = new WikiMediator();
+
+        wikiMediator.search("Hello", 10);
+        wikiMediator.getPage("User:Vijeethvp");
+        sleep(0.25);
+        wikiMediator.search("Blue", 4);
+        sleep(0.25);
+        wikiMediator.search("Hello", 3);
+        wikiMediator.getPage("User:Vijeethvp");
+        sleep(0.25);
+        wikiMediator.search("Hello", 4);
+        wikiMediator.getPage("User:AllyD");
+        sleep(0.25);
+        wikiMediator.getPage("User:AllyD");
+        wikiMediator.trending(0);
+        sleep(0.1);
+        wikiMediator.zeitgeist(2);
+
+        assertEquals(11, wikiMediator.peakLoad30s());
+
+    }
+
+    @Test
+    public void testPeakLoad30s2() {
+        WikiMediator wikiMediator = new WikiMediator();
+
+        wikiMediator.search("Hello", 10);
+        wikiMediator.getPage("User:Vijeethvp");
+        sleep(0.25);
+        wikiMediator.search("Blue", 4);
+        sleep(0.25);
+        wikiMediator.search("Hello", 3);
+        wikiMediator.getPage("User:Vijeethvp");
+        wikiMediator.trending(0);
+        sleep(0.1);
+        wikiMediator.zeitgeist(2);
+        wikiMediator.executeQuery("get page where title is 'Hello' ");
+
+        assertEquals(9, wikiMediator.peakLoad30s());
+
+    }
+
+
 
 
     /* Task 5 Tests */
@@ -680,6 +890,28 @@ public class Tests {
 
         assertEquals(0,actualList.size());
         assertEquals(new HashSet<>(expectedList), new HashSet<>(actualList));
+    }
+
+    @Test
+    public void testStructuredQuerySortedAsc() {
+        WikiMediator wikiMediator = new WikiMediator();
+        Wiki wiki = new Wiki.Builder().build();
+
+        List<String> expectedList = new LinkedList<>(Arrays.asList("Vijeethvp", "Wikignome Wintergreen"));
+        List<String> actualList = wikiMediator.executeQuery("get author where (title is 'Wild Fields' or  title is 'User:Vijeethvp') asc ");
+
+        assertEquals(expectedList, actualList);
+    }
+
+    @Test
+    public void testStructuredQuerySortedDesc() {
+        WikiMediator wikiMediator = new WikiMediator();
+        Wiki wiki = new Wiki.Builder().build();
+
+        List<String> expectedList = new LinkedList<>(Arrays.asList("Wikignome Wintergreen", "Vijeethvp"));
+        List<String> actualList = wikiMediator.executeQuery("get author where (title is 'Wild Fields' or  title is 'User:Vijeethvp') desc ");
+
+        assertEquals(expectedList, actualList);
     }
 
 
