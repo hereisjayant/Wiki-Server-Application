@@ -535,6 +535,15 @@ public class Tests {
         assertEquals("Temiscaming Royals",titles.get(4));
     }
 
+    @Test
+    public void testsearchLimit6() {
+        WikiMediator wikiMediator = new WikiMediator();
+        String expected = "45th president of the United State";
+        String actual = wikiMediator.getPage("Donald Trump");
+
+        assertEquals(expected,actual.substring(20,54));
+    }
+
     /* End : Task 3 Tests */
 
 
