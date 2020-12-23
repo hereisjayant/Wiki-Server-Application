@@ -3,11 +3,12 @@ package cpen221.mp3;
 import cpen221.mp3.fsftbuffer.*;
 import cpen221.mp3.wikimediator.WikiMediator;
 
+import org.fastily.jwiki.core.Wiki;
+import org.fastily.jwiki.dwrap.Contrib;
 import org.junit.Test;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+
 import static org.junit.Assert.*;
 
 public class Tests {
@@ -535,6 +536,133 @@ public class Tests {
     }
 
     /* End : Task 3 Tests */
+
+
+    /* Task 5 Tests */
+
+    public static final String author1 = "2A00:23C7:2183:BE00:6C16:ABEA:9039:3A8";
+    public static final String author2 = "64.49.112.19";
+
+    private List<String> pagesAuthoredBy(String author, Wiki wiki) {
+        List<String> expectedList = new LinkedList<>();
+        ArrayList<Contrib> contribs = wiki.getContribs(author,-1,true,false);
+        for (Contrib contrib : contribs) {
+            String titleOfContribution = contrib.title;
+            String lastEditor = wiki.getLastEditor(titleOfContribution);
+            if (lastEditor.equals(author)) {
+                expectedList.add(titleOfContribution);
+            }
+        }
+        return expectedList;
+    }
+
+    private List<String> getAuthorsOf(List<String> titles, Wiki wiki) {
+        List<String> tempResponse = new LinkedList<>();
+        for (String pageTitle : titles) {
+            tempResponse.add(wiki.getLastEditor(pageTitle));
+        }
+        return tempResponse;
+    }
+
+    public List<String> union (List<String> l1, List<String> l2) {
+        Set<String> s1 = new HashSet<>(l1);
+        Set<String> s2 = new HashSet<>(l2);
+        s1.addAll(s2);
+        return new LinkedList<>(s1);
+    }
+
+    @Test
+    public void testSturcturedQueryGetPage1() {
+        WikiMediator wikiMediator = new WikiMediator();
+        List<String> expectedList = new LinkedList<>(Collections.singleton("Hello"));
+        List<String> actualList = wikiMediator.executeQuery("get page where title is 'Hello' ");
+        assertEquals(expectedList,actualList);
+    }
+
+    @Test
+    public void testSturcturedQueryGetPage2() {
+        WikiMediator wikiMediator = new WikiMediator();
+        Wiki wiki = new Wiki.Builder().build();
+        List<String> expectedList = wiki.getCategoryMembers("Illinois state senators");
+        List<String> actualList = wikiMediator.executeQuery("get page where category is 'Illinois state senators' ");
+
+        assertEquals(expectedList.size(),actualList.size());
+        assertEquals(new HashSet<>(expectedList), new HashSet<>(actualList));
+    }
+
+    @Test
+    public void testStructuredQueryGetPage3() {
+        WikiMediator wikiMediator = new WikiMediator();
+        Wiki wiki = new Wiki.Builder().build();
+
+        List<String> expectedList = pagesAuthoredBy(author1, wiki);
+        List<String> actualList = wikiMediator.executeQuery("get page where author is '2A00:23C7:2183:BE00:6C16:ABEA:9039:3A8' ");
+
+        assertEquals(expectedList.size(),actualList.size());
+        assertEquals(new HashSet<>(expectedList), new HashSet<>(actualList));
+    }
+
+    @Test
+    public void testStructuredQueryGetAuthor1() {
+        WikiMediator wikiMediator = new WikiMediator();
+        Wiki wiki = new Wiki.Builder().build();
+
+        List<String> list1 = getAuthorsOf(Collections.singletonList("Barack Obama"),wiki);
+        List<String> list2 = getAuthorsOf(wiki.getCategoryMembers("Fortnite"), wiki);
+        List<String> expectedList = union(list1, list2);
+        List<String> actualList = wikiMediator.executeQuery("get author where (title is 'Barack Obama' or category is 'Fortnite') ");
+
+        assertEquals(expectedList.size(),actualList.size());
+        assertEquals(new HashSet<>(expectedList), new HashSet<>(actualList));
+    }
+
+    @Test
+    public void testStructuredQueryGetAuthor2() {
+        WikiMediator wikiMediator = new WikiMediator();
+        Wiki wiki = new Wiki.Builder().build();
+
+        List<String> expectedList = new LinkedList<>(Arrays.asList("Vijeethvp", "Wikignome Wintergreen"));
+        List<String> actualList = wikiMediator.executeQuery("get author where (title is 'Wild Fields' or  title is 'User:Vijeethvp') ");
+
+        assertEquals(expectedList.size(),actualList.size());
+        assertEquals(new HashSet<>(expectedList), new HashSet<>(actualList));
+    }
+
+    @Test
+    public void testStructuredQueryGetAuthor3() {
+        WikiMediator wikiMediator = new WikiMediator();
+        Wiki wiki = new Wiki.Builder().build();
+
+        List<String> expectedList = new LinkedList<>(Collections.singletonList("Vijeethvp"));
+        List<String> actualList = wikiMediator.executeQuery("get author where author is 'Vijeethvp' ");
+
+        assertEquals(expectedList.size(),actualList.size());
+        assertEquals(new HashSet<>(expectedList), new HashSet<>(actualList));
+    }
+
+    @Test
+    public void testStructuredQueryGetCategory1() {
+        WikiMediator wikiMediator = new WikiMediator();
+        Wiki wiki = new Wiki.Builder().build();
+
+        List<String> expectedList = Collections.singletonList("Category:Student");
+        List<String> actualList = wikiMediator.executeQuery("get category where (author is 'Vijeethvp' and (title is 'User:Vijeethvp' or title is 'Naomi Klein')) ");
+
+        assertEquals(expectedList.size(),actualList.size());
+        assertEquals(new HashSet<>(expectedList), new HashSet<>(actualList));
+    }
+
+    @Test
+    public void testStructuredQueryGetCategory2() {
+        WikiMediator wikiMediator = new WikiMediator();
+        Wiki wiki = new Wiki.Builder().build();
+
+        List<String> expectedList = Collections.emptyList();
+        List<String> actualList = wikiMediator.executeQuery("get category where (author is 'Vijeethvp' and title is 'Naomi Klein') ");
+
+        assertEquals(0,actualList.size());
+        assertEquals(new HashSet<>(expectedList), new HashSet<>(actualList));
+    }
 
 
 }

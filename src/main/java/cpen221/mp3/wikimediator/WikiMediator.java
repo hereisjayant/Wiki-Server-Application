@@ -1,5 +1,6 @@
 package cpen221.mp3.wikimediator;
 
+import cpen221.mp3.query.QueryFactory;
 import org.fastily.jwiki.core.Wiki;
 import org.fastily.jwiki.dwrap.ProtectedTitleEntry;
 
@@ -195,15 +196,19 @@ public class WikiMediator {
         }
     }
 
+    public List<String> executeQuery(String query) {
+        return QueryFactory.parse(query);
+    }
+
     public static void main(String[] args){
         WikiMediator wikiMediator = new WikiMediator();
 
-        System.out.println("***********************      Begin     **************************************\n\n");
-        System.out.println( wikiMediator.search("Chris Piche", 10) );
-        System.out.println( wikiMediator.getPage("Chris Piche") );
-        System.out.println( wikiMediator.zeitgeist(10) );
-        System.out.println( wikiMediator.trending(10) );
-        System.out.println( "Time = " + wikiMediator.peakLoad30s() );
-        System.out.println("\n\n***********************     The End    **************************************");
+//        System.out.println("***********************      Begin     **************************************\n\n");
+//        System.out.println( wikiMediator.search("Chris Piche", 10) );
+//        System.out.println( wikiMediator.getPage("Chris Piche") + "\n--------" );
+//        System.out.println( wikiMediator.zeitgeist(10) );
+//        System.out.println( wikiMediator.trending(10) );
+//        System.out.println( "Time = " + wikiMediator.peakLoad30s() );
+//        System.out.println("\n\n***********************     The End    **************************************");
     }
 }

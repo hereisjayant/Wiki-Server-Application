@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'antlr'
 }
 
 group 'CPEN 221'
@@ -16,4 +17,6 @@ dependencies {
     testImplementation group: 'junit', name: 'junit', version: '4.12'
     implementation 'org.fastily:jwiki:1.8.0'
     implementation 'com.google.code.gson:gson:2.8.6'
+    antlr "org.antlr:antlr4:4.7.2"
+    compile "org.antlr:antlr4-runtime:4.7.2"
 }
