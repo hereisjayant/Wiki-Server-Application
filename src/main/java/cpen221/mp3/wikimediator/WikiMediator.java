@@ -20,6 +20,24 @@ public class WikiMediator {
         String pageText;
         String pageTitle;
 
+        /*
+        Abstraction Function:
+            pageText represents the the text of the Wikipedia page
+
+            pageTitle represents the title of the Wikipedia page
+
+            pageCache caches the items of a Wikipedia page
+
+            searchCache finds the cache items from the Wikipedia page
+
+            log represents the queries called in a certain time period
+
+            peakLoadLog represents the peak number of requests in a time period
+
+            Representation Invariant:
+
+         */
+
         public PageCacheItem (String pageText, String pageTitle) {
             this.pageText = pageText;
             this.pageTitle = pageTitle;
