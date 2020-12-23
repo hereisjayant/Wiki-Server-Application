@@ -544,6 +544,15 @@ public class Tests {
         assertEquals(expected,actual.substring(20,54));
     }
 
+    @Test
+    public void testsearchLimit7() {
+        WikiMediator wikiMediator = new WikiMediator();
+        char expected = ' ';
+        String actual = wikiMediator.getPage("Barack Obama");
+
+        assertEquals(expected,actual.charAt(30));
+    }
+
     /* End : Task 3 Tests */
 
 
