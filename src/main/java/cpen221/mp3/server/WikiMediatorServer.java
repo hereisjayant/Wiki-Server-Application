@@ -13,6 +13,7 @@ import java.io.PrintWriter;
 import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.sql.SQLOutput;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +29,7 @@ public class WikiMediatorServer {
     public static final int WIKI_PORT = 4949;
     private final ServerSocket serverSocket;
     private final ExecutorService pool;
+    boolean shutdown;
 
     /**
      * Start a server at a given port number, with the ability to process
@@ -39,6 +41,7 @@ public class WikiMediatorServer {
     public WikiMediatorServer(int port, int n) throws IOException {
         serverSocket = new ServerSocket(port);
         pool = Executors.newFixedThreadPool(n);
+        shutdown = false;
     }
 
     /**
@@ -93,12 +96,21 @@ public class WikiMediatorServer {
                 .readLine()) {
                 System.err.println("request: " + line);
                 try {
-                    System.out.println("Request :"+line);
                     JsonObject jsonObjectIn = new Gson().fromJson(line, JsonObject.class);
+                    System.out.println("Request as obj:"+jsonObjectIn.toString());
+
                     // compute answer and send back to client
                     JsonObject jsonObjectOut = getJsonResult(jsonObjectIn);
-                    System.err.println("reply: " + jsonObjectOut.getAsString());
-                    out.println(jsonObjectOut.getAsString());
+                    System.err.println("reply: " + jsonObjectOut.toString());
+                    out.println(jsonObjectOut.toString());
+                    if(shutdown){
+                        System.out.println("Turning the server off...");
+                        out.close();
+                        in.close();
+                        socket.close();
+                        pool.shutdown();
+                        serverSocket.close();
+                    }
                 } catch (NumberFormatException e) {
                     // complain about ill-formatted request
                     System.err.println("reply: err");
@@ -113,20 +125,6 @@ public class WikiMediatorServer {
             in.close();
         }
     }
-
-        /*
-        DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
-
-        JsonObject jsonObjectIn = new Gson().fromJson(bufferedReader, JsonObject.class);
-        System.out.println(jsonObjectIn.toString());
-
-        try {
-            dataOutputStream.writeUTF(getJsonResult(jsonObjectIn).getAsString());
-            dataOutputStream.flush();
-        } finally {
-            bufferedReader.close();
-            dataOutputStream.close();
-        }*/
 
 
 
@@ -240,7 +238,8 @@ public class WikiMediatorServer {
             jsonObjectOut.addProperty("response", result);
 
         } else if(type.compareToIgnoreCase("stop") == 0){
-
+            jsonObjectOut.addProperty("response", "bye");
+            shutdown = true;
         }
         else {
 

@@ -28,12 +28,11 @@ public class WikiMediatorClient {
         try {
             WikiMediatorClient client = new WikiMediatorClient("localhost", WikiMediatorServer.WIKI_PORT);
             client.sendRequest("{" +
-                "\t\"id\": \"1\",\n" +
-                "\t\"type\": \"search\",\n" +
-                "\t\"query\": \"Barack Obama\",\n" +
-                "\t\"limit\": \"12\"\n" +
+                "\t\"id\": \"ten\"," +
+                "\t\"type\": \"stop\"," +
+                "\t\"query\": \"Barack Obama\"," +
+                "\t\"limit\": \"12\"" +
                 "}");
-            System.out.println("Search Obama = ?");
 
             String y = client.getReply();
             System.out.println("Result" + y);
