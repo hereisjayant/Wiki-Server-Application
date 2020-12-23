@@ -144,6 +144,21 @@ public class QueryFactory {
                 }
                 response = removeDuplicates(tempResponse);
             }
+
+            if (ctx.SORTED() != null) {
+                assert ctx.SORTED().getText().equals("asc") || ctx.SORTED().getText().equals("desc");
+
+                boolean ascending = ctx.SORTED().getText().equals("asc");
+                Collections.sort(response, new Comparator<String>() {
+                    @Override
+                    public int compare(String o1, String o2) {
+                        if (ascending) {
+                            return o1.compareTo(o2);
+                        }
+                        return o2.compareTo(o1);
+                    }
+                });
+            }
         }
 
         private List<String> removeDuplicates (List<String> list) {

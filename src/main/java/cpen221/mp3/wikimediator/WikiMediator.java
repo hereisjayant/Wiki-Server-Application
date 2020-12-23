@@ -1,22 +1,89 @@
 package cpen221.mp3.wikimediator;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import cpen221.mp3.fsftbuffer.Bufferable;
+import cpen221.mp3.fsftbuffer.FSFTBuffer;
 import cpen221.mp3.query.QueryFactory;
 import org.fastily.jwiki.core.Wiki;
 import org.fastily.jwiki.dwrap.ProtectedTitleEntry;
 
+import java.io.*;
+import java.sql.Timestamp;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public class WikiMediator {
 
-    private Wiki wiki = null;
-    private HashMap<String, Integer> M1 = new HashMap<String, Integer>(), M2 = new HashMap<String,Integer>(), F1 = new HashMap<String,Integer>();
-    private HashMap<Long,String> F2 = new HashMap<Long,String >();
-    private HashMap<Long,Integer> timeSlots = new HashMap<Long, Integer>();
-    private int maximumRequestSlot = 0;
+    private class PageCacheItem implements Bufferable {
+        String pageText;
+        String pageTitle;
+
+        public PageCacheItem (String pageText, String pageTitle) {
+            this.pageText = pageText;
+            this.pageTitle = pageTitle;
+        }
+
+        @Override
+        public String id() {
+            return pageTitle;
+        }
+    }
+
+    private class SearchCacheItem implements Bufferable {
+        List<String> pageList;
+        String query;
+        int limit;
+
+        public SearchCacheItem (List<String> pageList, String query, int limit) {
+            this.pageList = pageList;
+            this.query = query;
+            this.limit = limit;
+        }
+
+        @Override
+        public String id() {
+            return query;
+        }
+
+        public int getLimit() {
+            return limit;
+        }
+    }
+
+    private Wiki wiki;
+    private FSFTBuffer<PageCacheItem> pageCache;
+    private FSFTBuffer<SearchCacheItem> searchCache;
+    private Map<Timestamp, String> log;
+    private List<Timestamp> peakLoadLog;
+    private final String DEFAULT_FILENAME = "logs.txt";
+
 
     public WikiMediator() {
         wiki = new Wiki.Builder().build();
+        pageCache = new FSFTBuffer<>(100, 1000);
+        searchCache = new FSFTBuffer<>(100, 1000);
+        log = new ConcurrentHashMap<>();
+        peakLoadLog = Collections.synchronizedList(new LinkedList<>());
+    }
+
+    public WikiMediator(File filename) throws FileNotFoundException {
+        wiki = new Wiki.Builder().build();
+        pageCache = new FSFTBuffer<>(100, 1000);
+        searchCache = new FSFTBuffer<>(100, 1000);
+        Gson gson = new Gson();
+        log = Collections.synchronizedMap(gson.fromJson(new FileReader(filename), new TypeToken<HashMap<Timestamp, String>>(){}.getType()));
+        peakLoadLog = Collections.synchronizedList(gson.fromJson(new FileReader(filename), new TypeToken<List<Timestamp>>(){}.getType()));
+    }
+
+    public void saveLogs(File filename) {
+        Gson gson = new Gson();
+        try (FileWriter writer = new FileWriter(DEFAULT_FILENAME)) {
+            gson.toJson(log, writer);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -25,16 +92,31 @@ public class WikiMediator {
      * @param limit
      * @return a list of page titles that matches the query
      */
-    public List<String> search(String query, int limit){
-        updateTimeWiseTrack(query);
-        calculateMaximumRequestSlot();
-        int value = 0;
-        if(M1.containsKey(query)){
-            value = M1.get(query);
+    public synchronized List<String> search(String query, int limit){
+        log.put(new Timestamp(System.currentTimeMillis()), query);
+        peakLoadLog.add(new Timestamp(System.currentTimeMillis()));
+
+        try {
+            SearchCacheItem searchCacheItem = searchCache.get(query);
+
+            if (searchCacheItem.getLimit() >= limit) {
+                List<String> queryResults = new ArrayList<>();
+                for (int i = 0; i < limit; i++) {
+                    queryResults.add(searchCacheItem.pageList.get(i));
+                }
+                return queryResults;
+            }
+            else {
+                ArrayList<String> pageTitles = new ArrayList<>(wiki.search(query,limit));
+                searchCache.update(new SearchCacheItem(pageTitles, query, limit));
+                return pageTitles;
+            }
         }
-        value = value + 1;
-        M1.put(query,value);
-        return wiki.search(query, limit);
+        catch (IllegalAccessException e) {
+            ArrayList<String> pageTitles = new ArrayList<>(wiki.search(query,limit));
+            searchCache.put(new SearchCacheItem(pageTitles, query, limit));
+            return pageTitles;
+        }
     }
 
     /**
@@ -42,118 +124,116 @@ public class WikiMediator {
      * @param pageTitle
      * @return text that matches pageTitle
      */
-    public String getPage(String pageTitle){
-        updateTimeWiseTrack(pageTitle);
-        calculateMaximumRequestSlot();
-        int value = 0;
-        if(M2.containsKey(pageTitle)){
-            value = M2.get(pageTitle);
+    public synchronized String getPage(String pageTitle){
+        log.put(new Timestamp(System.currentTimeMillis()), pageTitle);
+        peakLoadLog.add(new Timestamp(System.currentTimeMillis()));
+
+        try {
+            PageCacheItem pageCacheItem = pageCache.get(pageTitle);
+            return pageCacheItem.pageText;
+        } catch (IllegalAccessException e) {
+            String pageText = wiki.getPageText(pageTitle);
+            pageCache.put(new PageCacheItem(pageText, pageTitle));
+            return pageText;
         }
-        value = value + 1;
-        M2.put(pageTitle,value);
-        return wiki.getPageText(pageTitle);
     }
 
     /**
      * Calculates the most common string in non-increasing order
-     * @param limit
+     * @param limit limit to the length of returned list
      * @return the most common string
      */
-    public List<String> zeitgeist(int limit){
-        calculateMaximumRequestSlot();
-        List<String> result = new ArrayList<String>();
-        Map<Integer, List<String>> map = new LinkedHashMap<Integer, List<String>>();
-        List<String> values;
-        for (Map.Entry<String, Integer> entry : M1.entrySet()) {
-            String key = entry.getKey();
-            int value = entry.getValue();
-            if(!M2.containsKey(key)){
-                continue;
-            }
-            int value2 = M2.get(key);
-            if(value2 < value){
-                value = value2;
-            }
-            if(value <= 0){
-                continue;
-            }
-            value = -value;
+    public synchronized List<String> zeitgeist(int limit){
+        peakLoadLog.add(new Timestamp(System.currentTimeMillis()));
 
-            if(map.containsKey(value)){
-                values = map.get(value);
+        List<String> loggedStrings = new LinkedList<>(log.values());
+        Map<String, Integer> stringCounts = new HashMap<>();
+
+        for (String string : loggedStrings) {
+            if (!stringCounts.containsKey(string)) {
+                stringCounts.put(string, 0);
             }
-            else {
-                values = new ArrayList<String>();
-            }
-            values.add(key);
+            int prevCount = stringCounts.get(string);
+            stringCounts.put(string, prevCount + 1);
         }
 
-        for (Map.Entry<Integer, List<String>> entry : map.entrySet()) {
-            for (String val : entry.getValue()) {
-                if (result.size() == limit) {
-                    return result;
+        List<String> stringList = new LinkedList<>(stringCounts.keySet());
+        Collections.sort(stringList, new Comparator<String>() {
+            @Override
+            public int compare(String o1, String o2) {
+                if (stringCounts.get(o1) > stringCounts.get(o2)) {
+                    return -1;
                 }
-                result.add(val);
+                else if (stringCounts.get(o1) < stringCounts.get(o2)) {
+                    return 1;
+                }
+                return 0;
             }
+        });
+
+        if (stringList.size() <= limit) {
+            return stringList;
         }
-        return result;
+        else {
+            List<String> limitedStringList = new LinkedList<>();
+            for (int i = 0; i < limit; i++) {
+                limitedStringList.add(stringList.get(i));
+            }
+            return limitedStringList;
+        }
+
     }
 
     /**
-     * Calculates the number of most frequently made requests
-     * @param limit
-     * @return the most frequent requests
+     * Returns a list of Strings ranked by the number of most frequently made requests
+     * @param limit limit to the length of returned list
+     * @return list of Strings ranked by most frequent requests
      */
     public List<String> trending(int limit){
-        calculateMaximumRequestSlot();
-        List<String> result = new ArrayList<String>();
-        Map<Integer, List<String>> map = new LinkedHashMap<Integer, List<String>>();
-        List<String> values;
-        long lasttime = (System.currentTimeMillis() / 1000) - 30;
+        peakLoadLog.add(new Timestamp(System.currentTimeMillis()));
 
-        Iterator it = F2.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry pair = (Map.Entry)it.next();
-            long curTime = (long)pair.getKey();
-            if(curTime > lasttime){
-                break;
+        Long currentMillis = System.currentTimeMillis();
+        Set<Timestamp> past30sRequestedTimes = new HashSet<>();
+        for (Timestamp timestamp : log.keySet()) {
+            if (currentMillis - timestamp.getTime() <= 30 * 1000) {
+                past30sRequestedTimes.add(timestamp);
             }
-            String key = (String) pair.getValue();
-            int value = F1.get(key);
-            value = value - 1;
-            if(value == 0){
-                F1.remove(key);
-            }
-            else {
-                F1.put(key, value);
-            }
-            it.remove();
-            it = F2.entrySet().iterator();
         }
 
-        for (Map.Entry<String, Integer> entry : F1.entrySet()) {
-            String key = entry.getKey();
-            int value = entry.getValue();
-            value = -value;
-
-            if(map.containsKey(value)){
-                values = map.get(value);
-            }
-            else {
-                values = new ArrayList<String>();
-            }
-            values.add(key);
-        }
-
-        for (Map.Entry<Integer, List<String>> entry : map.entrySet()) {
-            for (String val : entry.getValue()) {
-                if (result.size() == limit) {
-                    return result;
+        List<Timestamp> past30sReqeuestedTimesList = new LinkedList<>(past30sRequestedTimes);
+        Collections.sort(past30sReqeuestedTimesList, new Comparator<Timestamp>() {
+            @Override
+            public int compare(Timestamp o1, Timestamp o2) {
+                if (o1.getTime() > o2.getTime()) {
+                    return -1;
                 }
-                result.add(val);
+                if (o1.getTime() < o2.getTime()) {
+                    return 1;
+                }
+                return 0;
+            }
+        });
+
+        Set<String> temporaryStringSet = new HashSet<>();
+        List<String> mostFrequentStringList = new LinkedList<>();
+        for (Timestamp timestamp : past30sReqeuestedTimesList) {
+            if (!temporaryStringSet.contains(log.get(timestamp))) {
+                temporaryStringSet.add(log.get(timestamp));
+                mostFrequentStringList.add(log.get(timestamp));
             }
         }
-        return result;
+
+        if (mostFrequentStringList.size() <= limit) {
+            return mostFrequentStringList;
+        }
+        else {
+            List<String> limitedStringList = new LinkedList<>();
+            for (int i = 0; i < limit; i++) {
+                limitedStringList.add(mostFrequentStringList.get(i));
+            }
+            return limitedStringList;
+        }
+
     }
 
     /**
@@ -161,54 +241,15 @@ public class WikiMediator {
      * @return request count
      */
     public int peakLoad30s() {
-        calculateMaximumRequestSlot();
-        return maximumRequestSlot;
-    }
+        peakLoadLog.add(new Timestamp(System.currentTimeMillis()));
 
-    /**
-     * Updates time for a given key
-     * @param key
-     */
-    public void updateTimeWiseTrack(String key){
-        int value = 0;
-        if(F1.containsKey(key)){
-            value = F1.get(key);
-        }
-        value = value + 1;
-        F1.put(key,value);
 
-        F2.put((System.currentTimeMillis() / 1000),key);
-    }
 
-    /**
-     * Calculates the maximum number of request
-     */
-    public void calculateMaximumRequestSlot() {
-        int value = 0;
-        long timeSlot = (System.currentTimeMillis() / 1000) / 30;
-        if(timeSlots.containsKey(timeSlot)){
-            value = timeSlots.get(timeSlot);
-        }
-        value = value + 1;
-        timeSlots.put(timeSlot,value);
-        if(value > maximumRequestSlot ){
-            maximumRequestSlot = value;
-        }
+
+        return -1;
     }
 
     public List<String> executeQuery(String query) {
         return QueryFactory.parse(query);
-    }
-
-    public static void main(String[] args){
-        WikiMediator wikiMediator = new WikiMediator();
-
-//        System.out.println("***********************      Begin     **************************************\n\n");
-//        System.out.println( wikiMediator.search("Chris Piche", 10) );
-//        System.out.println( wikiMediator.getPage("Chris Piche") + "\n--------" );
-//        System.out.println( wikiMediator.zeitgeist(10) );
-//        System.out.println( wikiMediator.trending(10) );
-//        System.out.println( "Time = " + wikiMediator.peakLoad30s() );
-//        System.out.println("\n\n***********************     The End    **************************************");
     }
 }
