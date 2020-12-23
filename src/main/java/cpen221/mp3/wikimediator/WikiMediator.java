@@ -16,11 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class WikiMediator {
 
-    private class PageCacheItem implements Bufferable {
-        String pageText;
-        String pageTitle;
-
-        /*
+    /*
         Abstraction Function:
             pageText represents the the text of the Wikipedia page
 
@@ -35,8 +31,18 @@ public class WikiMediator {
             peakLoadLog represents the peak number of requests in a time period
 
             Representation Invariant:
+                pageText and pageTitle are non-null
 
+                pageCache and searchCache are non-null with capacity of requests < 100.
+                The timeout for requets is defined to be 0 < timeout < 1000.
+                Capacity and timeout are positive integers.
+
+                log and peakLoadLog are positive long values
          */
+
+    private class PageCacheItem implements Bufferable {
+        String pageText;
+        String pageTitle;
 
         public PageCacheItem (String pageText, String pageTitle) {
             this.pageText = pageText;
