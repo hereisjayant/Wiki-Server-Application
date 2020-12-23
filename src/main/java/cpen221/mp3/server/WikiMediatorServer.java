@@ -10,16 +10,21 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class WikiMediatorServer {
 
 
     private final ServerSocket serverSocket;
     private final ExecutorService pool;
-
 
     /**
      * Start a server at a given port number, with the ability to process
@@ -43,7 +48,7 @@ public class WikiMediatorServer {
             // block until a client connects
             final Socket socket = serverSocket.accept();
 
-            //Creates a new executer service to handle n requests:
+            //Creates a new executor service to handle n requests:
             pool.execute(new Runnable() {
                 @Override
                 public void run() {
@@ -78,8 +83,6 @@ public class WikiMediatorServer {
         DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
 
         JsonObject jsonObjectIn = new Gson().fromJson(bufferedReader, JsonObject.class);
-        double timeout = jsonObjectIn.get("timeout").getAsDouble();
-
 
         try {
             dataOutputStream.writeUTF(getJsonResult(jsonObjectIn).getAsString());
@@ -101,10 +104,33 @@ public class WikiMediatorServer {
 
         String type = jsonObjectIn.get("type").getAsString();
 
+        // This is for the Search operation
         if (type.compareToIgnoreCase("search") == 0) {
+
             String query = jsonObjectIn.get("query").getAsString();
             int limit = jsonObjectIn.get("limit").getAsInt();
-            List result = wikiMediator.search(query, limit);
+            List<String> result = new ArrayList<>();
+
+            //this is executed to manage timeouts
+            if (jsonObjectIn.has("timeout")) {
+                //gets timeout from the json obj
+                long timeoutDuration = jsonObjectIn.get("timeout").getAsLong();
+                final Duration timeout = Duration.ofSeconds(timeoutDuration);
+
+                ExecutorService executor = Executors.newSingleThreadExecutor();
+                Future<List<String>> future =
+                    executor.submit(() -> wikiMediator.search(query, limit));
+                try {
+                    result = future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+                } catch (TimeoutException | InterruptedException | ExecutionException e) {
+                    future.cancel(true);
+                    jsonObjectOut.addProperty("status", "failed");
+                    jsonObjectOut.addProperty("response", "Operation timed out");
+                    return jsonObjectOut;
+                }
+            } else {
+                result = wikiMediator.search(query, limit);
+            }
 
             if (!result.isEmpty()) {
                 jsonObjectOut.addProperty("status", "success");
@@ -112,8 +138,11 @@ public class WikiMediatorServer {
                 jsonObjectOut.addProperty("response", resultJson);
             } else {
                 jsonObjectOut.addProperty("status", "failed");
+                jsonObjectOut.addProperty("response", query + " returned no results");
             }
+        //This is for the zeitgeist operation
         } else if (type.compareToIgnoreCase("zeitgeist") == 0) {
+
             int limit = jsonObjectIn.get("limit").getAsInt();
             List result = wikiMediator.zeitgeist(limit);
 
@@ -123,14 +152,38 @@ public class WikiMediatorServer {
                 jsonObjectOut.addProperty("response", resultJson);
             } else {
                 jsonObjectOut.addProperty("status", "failed");
+                jsonObjectOut.addProperty("response", "returned no results");
             }
+        //This is for the getPage Operation
         } else if (type.compareToIgnoreCase("getPage") == 0) {
             String pageTitle = jsonObjectIn.get("pageTitle").getAsString();
-            String result = wikiMediator.getPage(pageTitle);
+            String result;
+            //this is executed to manage timeouts
+            if (jsonObjectIn.has("timeout")) {
+                //gets timeout from the json obj
+                long timeoutDuration = jsonObjectIn.get("timeout").getAsLong();
+                final Duration timeout = Duration.ofSeconds(timeoutDuration);
 
+                ExecutorService executor = Executors.newSingleThreadExecutor();
+                Future<String> future =
+                    executor.submit(() -> wikiMediator.getPage(pageTitle));
+                try {
+                    result = future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+                } catch (TimeoutException | InterruptedException | ExecutionException e) {
+                    future.cancel(true);
+                    jsonObjectOut.addProperty("status", "failed");
+                    jsonObjectOut.addProperty("response", "Operation timed out");
+                    return jsonObjectOut;
+                }
+            } else {
+                result = wikiMediator.getPage(pageTitle);
+            }
             jsonObjectOut.addProperty("status", "success");
             jsonObjectOut.addProperty("response", result);
-        } else if (type.compareToIgnoreCase("trending") == 0) {
+        }
+        //This is for the trending operation
+        else if (type.compareToIgnoreCase("trending") == 0) {
+
             int limit = jsonObjectIn.get("limit").getAsInt();
             List result = wikiMediator.trending(limit);
 
@@ -140,15 +193,22 @@ public class WikiMediatorServer {
                 jsonObjectOut.addProperty("response", resultJson);
             } else {
                 jsonObjectOut.addProperty("status", "failed");
+                jsonObjectOut.addProperty("response", "returned no results");
+
             }
+
         } else if (type.compareToIgnoreCase("peakLoad30s") == 0) {
 
             int result = wikiMediator.peakLoad30s();
 
             jsonObjectOut.addProperty("status", "success");
             jsonObjectOut.addProperty("response", result);
+
         } else {
+
             jsonObjectOut.addProperty("status", "failed");
+            jsonObjectOut.addProperty("response", "Operation type not found");
+
         }
         return jsonObjectOut;
     }
