@@ -8,6 +8,9 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.time.Duration;
@@ -22,7 +25,7 @@ import java.util.concurrent.TimeoutException;
 
 public class WikiMediatorServer {
 
-
+    public static final int WIKI_PORT = 4949;
     private final ServerSocket serverSocket;
     private final ExecutorService pool;
 
@@ -78,11 +81,44 @@ public class WikiMediatorServer {
     private void handle(Socket socket) throws IOException {
         System.err.println("client connected");
 
-        BufferedReader bufferedReader =
+        BufferedReader in =
             new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+        PrintWriter out = new PrintWriter(new OutputStreamWriter(
+            socket.getOutputStream()), true);
+
+        try {
+            // each request is a single line containing a number
+            for (String line = in.readLine(); line != null; line = in
+                .readLine()) {
+                System.err.println("request: " + line);
+                try {
+                    System.out.println("Request :"+line);
+                    JsonObject jsonObjectIn = new Gson().fromJson(line, JsonObject.class);
+                    // compute answer and send back to client
+                    JsonObject jsonObjectOut = getJsonResult(jsonObjectIn);
+                    System.err.println("reply: " + jsonObjectOut.getAsString());
+                    out.println(jsonObjectOut.getAsString());
+                } catch (NumberFormatException e) {
+                    // complain about ill-formatted request
+                    System.err.println("reply: err");
+                    out.print("err\n");
+                }
+                // important! our PrintWriter is auto-flushing, but if it were
+                // not:
+                // out.flush();
+            }
+        } finally {
+            out.close();
+            in.close();
+        }
+    }
+
+        /*
         DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
 
         JsonObject jsonObjectIn = new Gson().fromJson(bufferedReader, JsonObject.class);
+        System.out.println(jsonObjectIn.toString());
 
         try {
             dataOutputStream.writeUTF(getJsonResult(jsonObjectIn).getAsString());
@@ -90,17 +126,16 @@ public class WikiMediatorServer {
         } finally {
             bufferedReader.close();
             dataOutputStream.close();
-        }
+        }*/
 
-    }
+
 
     private JsonObject getJsonResult(JsonObject jsonObjectIn) {
 
         JsonObject jsonObjectOut = new JsonObject();
         WikiMediator wikiMediator = new WikiMediator();
 
-        int id = jsonObjectIn.get("id").getAsInt();
-        jsonObjectOut.addProperty("id", id);
+        jsonObjectOut.add("id", jsonObjectIn.get("id"));
 
         String type = jsonObjectIn.get("type").getAsString();
 
@@ -204,13 +239,30 @@ public class WikiMediatorServer {
             jsonObjectOut.addProperty("status", "success");
             jsonObjectOut.addProperty("response", result);
 
-        } else {
+        } else if(type.compareToIgnoreCase("stop") == 0){
+
+        }
+        else {
 
             jsonObjectOut.addProperty("status", "failed");
             jsonObjectOut.addProperty("response", "Operation type not found");
 
         }
         return jsonObjectOut;
+    }
+
+
+    /**
+     * Start a WikiMediatorServer running on the default port.
+     */
+    public static void main(String[] args) {
+        try {
+            WikiMediatorServer server = new WikiMediatorServer(
+                WIKI_PORT, 1);
+            server.serve();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 
