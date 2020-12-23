@@ -2,10 +2,13 @@ package cpen221.mp3.server;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.sun.nio.sctp.PeerAddressChangeNotification;
 import cpen221.mp3.wikimediator.WikiMediator;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -30,6 +33,11 @@ public class WikiMediatorServer {
     private final ServerSocket serverSocket;
     private final ExecutorService pool;
     boolean shutdown;
+    private WikiMediator wikiMediator;
+    private final String DEFAULT_FILENAME = "local/logs.txt";
+    private final String DEFAULT_FILENAME_PEAKLOAD = "local/logs_peak.txt";
+
+
 
     /**
      * Start a server at a given port number, with the ability to process
@@ -99,12 +107,25 @@ public class WikiMediatorServer {
                     JsonObject jsonObjectIn = new Gson().fromJson(line, JsonObject.class);
                     System.out.println("Request as obj:"+jsonObjectIn.toString());
 
+                    File log_file = new File(DEFAULT_FILENAME);
+                    File peakload_file = new File(DEFAULT_FILENAME_PEAKLOAD);
+
+                    if(new File(DEFAULT_FILENAME).isFile() && new File(DEFAULT_FILENAME_PEAKLOAD).isFile()){
+                        wikiMediator = new WikiMediator(log_file, peakload_file);
+                    }else{
+                        wikiMediator = new WikiMediator();
+                    }
+
                     // compute answer and send back to client
                     JsonObject jsonObjectOut = getJsonResult(jsonObjectIn);
                     System.err.println("reply: " + jsonObjectOut.toString());
                     out.println(jsonObjectOut.toString());
                     if(shutdown){
                         System.out.println("Turning the server off...");
+//                        File log_file = new File(DEFAULT_FILENAME);
+//                        File peakload_file = new File(DEFAULT_FILENAME_PEAKLOAD);
+                        System.out.println("Saving logs...");
+                        wikiMediator.saveLogs(log_file, peakload_file);
                         out.close();
                         in.close();
                         socket.close();
@@ -128,11 +149,9 @@ public class WikiMediatorServer {
 
 
 
-    private JsonObject getJsonResult(JsonObject jsonObjectIn) {
+    private JsonObject getJsonResult(JsonObject jsonObjectIn) throws FileNotFoundException {
 
         JsonObject jsonObjectOut = new JsonObject();
-        WikiMediator wikiMediator = new WikiMediator();
-
         jsonObjectOut.add("id", jsonObjectIn.get("id"));
 
         String type = jsonObjectIn.get("type").getAsString();
@@ -156,9 +175,10 @@ public class WikiMediatorServer {
                 try {
                     result = future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
                 } catch (TimeoutException | InterruptedException | ExecutionException e) {
-                    future.cancel(true);
+
                     jsonObjectOut.addProperty("status", "failed");
                     jsonObjectOut.addProperty("response", "Operation timed out");
+                    future.cancel(true);
                     return jsonObjectOut;
                 }
             } else {
@@ -257,7 +277,7 @@ public class WikiMediatorServer {
     public static void main(String[] args) {
         try {
             WikiMediatorServer server = new WikiMediatorServer(
-                WIKI_PORT, 1);
+                WIKI_PORT, 100);
             server.serve();
         } catch (IOException e) {
             e.printStackTrace();

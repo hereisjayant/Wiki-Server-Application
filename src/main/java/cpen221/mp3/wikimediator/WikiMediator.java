@@ -75,7 +75,8 @@ public class WikiMediator {
     private FSFTBuffer<SearchCacheItem> searchCache;
     private Map<Timestamp, String> log;
     private List<Timestamp> peakLoadLog;
-    private final String DEFAULT_FILENAME = "logs.txt";
+    private final String DEFAULT_FILENAME_LOG = "local/logs.txt";
+    private final String DEFAULT_FILENAME_PEAKLOAD = "local/logs_peak.txt";
 
 
     public WikiMediator() {
@@ -86,19 +87,24 @@ public class WikiMediator {
         peakLoadLog = Collections.synchronizedList(new LinkedList<>());
     }
 
-    public WikiMediator(File filename) throws FileNotFoundException {
+    public WikiMediator(File log_file, File peakload_file) throws FileNotFoundException {
         wiki = new Wiki.Builder().build();
         pageCache = new FSFTBuffer<>(100, 1000);
         searchCache = new FSFTBuffer<>(100, 1000);
         Gson gson = new Gson();
-        log = Collections.synchronizedMap(gson.fromJson(new FileReader(filename), new TypeToken<HashMap<Timestamp, String>>(){}.getType()));
-        peakLoadLog = Collections.synchronizedList(gson.fromJson(new FileReader(filename), new TypeToken<List<Timestamp>>(){}.getType()));
+        log = Collections.synchronizedMap(gson.fromJson(new FileReader(log_file), new TypeToken<HashMap<Timestamp, String>>(){}.getType()));
+        peakLoadLog = Collections.synchronizedList(gson.fromJson(new FileReader(peakload_file), new TypeToken<List<Timestamp>>(){}.getType()));
     }
 
-    public void saveLogs(File filename) {
+    public void saveLogs(File log_file, File peakload_file) {
         Gson gson = new Gson();
-        try (FileWriter writer = new FileWriter(DEFAULT_FILENAME)) {
+        try (FileWriter writer = new FileWriter(log_file)) {
             gson.toJson(log, writer);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        try (FileWriter writer = new FileWriter(peakload_file)) {
+            gson.toJson(peakLoadLog, writer);
         } catch (IOException e) {
             e.printStackTrace();
         }

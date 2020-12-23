@@ -31,7 +31,7 @@ public class WikiMediatorClient {
                 "\t\"id\": \"ten\"," +
                 "\t\"type\": \"stop\"," +
                 "\t\"query\": \"Barack Obama\"," +
-                "\t\"limit\": \"12\"" +
+                "\t\"limit\": \"5\"" +
                 "}");
 
             String y = client.getReply();
