@@ -922,6 +922,7 @@ public class Tests {
     /* Task 4 Tests */
     public static final int WIKI_PORT = 4949;
 
+
     @Test
     public void ServerTest() {
         new Thread(() -> {
@@ -936,7 +937,8 @@ public class Tests {
 
         new Thread(() -> {
             try {
-                WikiMediatorClient client = new WikiMediatorClient("localhost", WikiMediatorServer.WIKI_PORT);
+                WikiMediatorClient client =
+                        new WikiMediatorClient("localhost", WikiMediatorServer.WIKI_PORT);
                 client.sendRequest("{" +
                         "\t\"id\": \"ten\"," +
                         "\t\"type\": \"search\"," +
@@ -953,6 +955,115 @@ public class Tests {
                 e.printStackTrace();
             }
         }).start();
+
+
+    }
+
+    @Test
+    public void ServerTest3TimeOut() {
+        new Thread(() -> {
+            try {
+                WikiMediatorServer server = new WikiMediatorServer(
+                        WIKI_PORT, 10);
+                server.serve();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+
+        new Thread(() -> {
+            try {
+                WikiMediatorClient client =
+                        new WikiMediatorClient("localhost", WikiMediatorServer.WIKI_PORT);
+                client.sendRequest("{" +
+                        "\t\"id\": \"ten\"," +
+                        "\t\"type\": \"stop\"," +
+                        "\t\"query\": \"Barack Obama\"," +
+                        "\t\"limit\": \"1\"" +
+                        "}");
+
+                String y = client.getReply();
+                System.out.println("Result" + y);
+
+                client.close();
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+
+
+    }
+
+    @Test
+    public void ServerTest2stop() {
+        new Thread(() -> {
+            try {
+                WikiMediatorServer server = new WikiMediatorServer(
+                        WIKI_PORT, 10);
+                server.serve();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+
+        new Thread(() -> {
+            try {
+                WikiMediatorClient client =
+                        new WikiMediatorClient("localhost", WikiMediatorServer.WIKI_PORT);
+                client.sendRequest("{" +
+                        "\t\"id\": \"ten\"," +
+                        "\t\"type\": \"stop\"," +
+                        "\t\"query\": \"Barack Obama\"," +
+                        "\t\"limit\": \"10\"" +
+                        "}");
+
+                String y = client.getReply();
+                System.out.println("Result" + y);
+
+                client.close();
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+
+
+    }
+
+    @Test
+    public void ServerTest4Trending() {
+        new Thread(() -> {
+            try {
+                WikiMediatorServer server = new WikiMediatorServer(
+                        WIKI_PORT, 10);
+                server.serve();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+
+        new Thread(() -> {
+            try {
+                WikiMediatorClient client =
+                        new WikiMediatorClient("localhost", WikiMediatorServer.WIKI_PORT);
+                client.sendRequest("{" +
+                        "\t\"id\": \"ten\"," +
+                        "\t\"type\": \"trending\"," +
+                        "\t\"limit\": \"10\"" +
+                        "}");
+
+                String y = client.getReply();
+                System.out.println("Result" + y);
+
+                client.close();
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+
+
     }
 
 
