@@ -1,12 +1,15 @@
 package cpen221.mp3;
 
 import cpen221.mp3.fsftbuffer.*;
+import cpen221.mp3.server.WikiMediatorClient;
+import cpen221.mp3.server.WikiMediatorServer;
 import cpen221.mp3.wikimediator.WikiMediator;
 
 import org.fastily.jwiki.core.Wiki;
 import org.fastily.jwiki.dwrap.Contrib;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.*;
 
@@ -914,6 +917,42 @@ public class Tests {
         List<String> actualList = wikiMediator.executeQuery("get author where (title is 'Wild Fields' or  title is 'User:Vijeethvp') desc ");
 
         assertEquals(expectedList, actualList);
+    }
+
+    /* Task 4 Tests */
+    public static final int WIKI_PORT = 4949;
+
+    @Test
+    public void ServerTest() {
+        new Thread(() -> {
+            try {
+                WikiMediatorServer server = new WikiMediatorServer(
+                        WIKI_PORT, 10);
+                server.serve();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+
+        new Thread(() -> {
+            try {
+                WikiMediatorClient client = new WikiMediatorClient("localhost", WikiMediatorServer.WIKI_PORT);
+                client.sendRequest("{" +
+                        "\t\"id\": \"ten\"," +
+                        "\t\"type\": \"search\"," +
+                        "\t\"query\": \"Barack Obama\"," +
+                        "\t\"limit\": \"10\"" +
+                        "}");
+
+                String y = client.getReply();
+                System.out.println("Result" + y);
+
+                client.close();
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
 
 
