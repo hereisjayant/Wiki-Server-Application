@@ -1,6 +1,7 @@
 package cpen221.mp3.wikimediator;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import cpen221.mp3.fsftbuffer.Bufferable;
 import cpen221.mp3.fsftbuffer.FSFTBuffer;
@@ -102,17 +103,27 @@ public class WikiMediator {
         peakLoadLog = Collections.synchronizedList(gson.fromJson(new FileReader(peakload_file), new TypeToken<List<Timestamp>>(){}.getType()));
     }
 
-    public void saveLogs(File log_file, File peakload_file) {
+    public void saveLogs(File log_file, File peakload_file) throws IOException {
         Gson gson = new Gson();
-        try (FileWriter writer = new FileWriter(log_file)) {
-            gson.toJson(log, writer);
+        FileWriter writer_log_file = new FileWriter(log_file);
+        try {
+            writer_log_file.write(gson.toJson(log));
         } catch (IOException e) {
             e.printStackTrace();
         }
-        try (FileWriter writer = new FileWriter(peakload_file)) {
-            gson.toJson(peakLoadLog, writer);
+        finally {
+            writer_log_file.flush();
+            writer_log_file.close();
+        }
+        FileWriter writer_log_peakload = new FileWriter(peakload_file);
+        try{
+            writer_log_peakload.write(gson.toJson(peakLoadLog));
         } catch (IOException e) {
             e.printStackTrace();
+        }
+        finally {
+            writer_log_peakload.flush();
+            writer_log_peakload.close();
         }
     }
 
