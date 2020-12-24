@@ -277,7 +277,7 @@ public class WikiMediatorServer {
     public static void main(String[] args) {
         try {
             WikiMediatorServer server = new WikiMediatorServer(
-                WIKI_PORT, 100);
+                WIKI_PORT, 10);
             server.serve();
         } catch (IOException e) {
             e.printStackTrace();

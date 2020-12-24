@@ -9,13 +9,36 @@ import org.fastily.jwiki.core.Wiki;
 import org.fastily.jwiki.dwrap.ProtectedTitleEntry;
 
 import java.io.*;
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 
 public class WikiMediator {
+
+    /*
+        Abstraction Function:
+            pageText represents the the text of the Wikipedia page
+
+            pageTitle represents the title of the Wikipedia page
+
+            pageCache caches the items of a Wikipedia page
+
+            searchCache finds the cache items from the Wikipedia page
+
+            log represents the queries called in a certain time period
+
+            peakLoadLog represents the peak number of requests in a time period
+
+            Representation Invariant:
+                pageText and pageTitle are non-null
+
+                pageCache and searchCache are non-null with capacity of requests < 100.
+                The timeout for requets is defined to be 0 < timeout < 1000.
+                Capacity and timeout are positive integers.
+
+                log and peakLoadLog are positive long values
+         */
 
     private class PageCacheItem implements Bufferable {
         String pageText;
@@ -56,14 +79,10 @@ public class WikiMediator {
     private Wiki wiki;
     private FSFTBuffer<PageCacheItem> pageCache;
     private FSFTBuffer<SearchCacheItem> searchCache;
-
-    public Map<Timestamp, List<String>> getLog() {
-        return log;
-    }
-
-    private Map<Timestamp, List<String>> log;
+    private Map<Timestamp, String> log;
     private List<Timestamp> peakLoadLog;
-    private final String DEFAULT_FILENAME = "logs.txt";
+    private final String DEFAULT_FILENAME_LOG = "local/logs.txt";
+    private final String DEFAULT_FILENAME_PEAKLOAD = "local/logs_peak.txt";
 
 
     public WikiMediator() {
@@ -74,33 +93,26 @@ public class WikiMediator {
         peakLoadLog = Collections.synchronizedList(new LinkedList<>());
     }
 
-    public WikiMediator(File filename) throws FileNotFoundException {
+    public WikiMediator(File log_file, File peakload_file) throws FileNotFoundException {
         wiki = new Wiki.Builder().build();
         pageCache = new FSFTBuffer<>(100, 1000);
         searchCache = new FSFTBuffer<>(100, 1000);
         Gson gson = new Gson();
-        log = Collections.synchronizedMap(gson.fromJson(new FileReader(filename), new TypeToken<HashMap<Timestamp, List<String>>>(){}.getType()));
-        peakLoadLog = Collections.synchronizedList(gson.fromJson(new FileReader(filename), new TypeToken<List<Timestamp>>(){}.getType()));
+        log = Collections.synchronizedMap(gson.fromJson(new FileReader(log_file), new TypeToken<HashMap<Timestamp, String>>(){}.getType()));
+        peakLoadLog = Collections.synchronizedList(gson.fromJson(new FileReader(peakload_file), new TypeToken<List<Timestamp>>(){}.getType()));
     }
 
-    public void saveLogs(File filename) {
+    public void saveLogs(File log_file, File peakload_file) {
         Gson gson = new Gson();
-        try (FileWriter writer = new FileWriter(DEFAULT_FILENAME)) {
+        try (FileWriter writer = new FileWriter(log_file)) {
             gson.toJson(log, writer);
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    private void registerLog(Timestamp currentTimestamp, String string) {
-        if (log.containsKey(currentTimestamp)) {
-            List<String> list = log.get(currentTimestamp);
-            List<String> newList = new LinkedList<>(list);
-            newList.add(string);
-            log.put(currentTimestamp, newList);
-        }
-        else {
-            log.put(new Timestamp(System.currentTimeMillis()), Collections.singletonList(string));
+        try (FileWriter writer = new FileWriter(peakload_file)) {
+            gson.toJson(peakLoadLog, writer);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -111,9 +123,7 @@ public class WikiMediator {
      * @return a list of page titles that matches the query
      */
     public synchronized List<String> search(String query, int limit){
-        Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis());
-        registerLog(currentTimestamp, query);
-
+        log.put(new Timestamp(System.currentTimeMillis()), query);
         peakLoadLog.add(new Timestamp(System.currentTimeMillis()));
 
         try {
@@ -145,9 +155,7 @@ public class WikiMediator {
      * @return text that matches pageTitle
      */
     public synchronized String getPage(String pageTitle){
-        Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis());
-        registerLog(currentTimestamp, pageTitle);
-
+        log.put(new Timestamp(System.currentTimeMillis()), pageTitle);
         peakLoadLog.add(new Timestamp(System.currentTimeMillis()));
 
         try {
@@ -168,17 +176,15 @@ public class WikiMediator {
     public synchronized List<String> zeitgeist(int limit){
         peakLoadLog.add(new Timestamp(System.currentTimeMillis()));
 
-        List<List<String>> loggedStringsList = new LinkedList<>(log.values());
+        List<String> loggedStrings = new LinkedList<>(log.values());
         Map<String, Integer> stringCounts = new HashMap<>();
 
-        for (List<String> list : loggedStringsList) {
-            for (String string : list) {
-                if (!stringCounts.containsKey(string)) {
-                    stringCounts.put(string, 0);
-                }
-                int prevCount = stringCounts.get(string);
-                stringCounts.put(string, prevCount + 1);
+        for (String string : loggedStrings) {
+            if (!stringCounts.containsKey(string)) {
+                stringCounts.put(string, 0);
             }
+            int prevCount = stringCounts.get(string);
+            stringCounts.put(string, prevCount + 1);
         }
 
         List<String> stringList = new LinkedList<>(stringCounts.keySet());
@@ -213,7 +219,7 @@ public class WikiMediator {
      * @param limit limit to the length of returned list
      * @return list of Strings ranked by most frequent requests
      */
-    public synchronized List<String> trending(int limit){
+    public List<String> trending(int limit){
         peakLoadLog.add(new Timestamp(System.currentTimeMillis()));
 
         Long currentMillis = System.currentTimeMillis();
@@ -241,14 +247,10 @@ public class WikiMediator {
         Set<String> temporaryStringSet = new HashSet<>();
         List<String> mostFrequentStringList = new LinkedList<>();
         for (Timestamp timestamp : past30sReqeuestedTimesList) {
-            List<String> list = log.get(timestamp);
-            for (String string : list) {
-                if (!temporaryStringSet.contains(string)) {
-                    temporaryStringSet.add(string);
-                    mostFrequentStringList.add(string);
-                }
+            if (!temporaryStringSet.contains(log.get(timestamp))) {
+                temporaryStringSet.add(log.get(timestamp));
+                mostFrequentStringList.add(log.get(timestamp));
             }
-
         }
 
         if (mostFrequentStringList.size() <= limit) {
@@ -265,36 +267,19 @@ public class WikiMediator {
     }
 
     /**
-     *  Returns the maximum number of request count within any 30s
-     * @return maximum number of request count within any 30s
+     *  Calculates the number of request count
+     * @return request count
      */
-    public synchronized int peakLoad30s() {
+    public int peakLoad30s() {
         peakLoadLog.add(new Timestamp(System.currentTimeMillis()));
 
-        int maxRequests = Integer.MIN_VALUE;
 
-        Long currentMillis = System.currentTimeMillis();
-        for (int i = 0, j = 0; i < peakLoadLog.size(); i++) {
-            if (j == peakLoadLog.size()) {
-                break;
-            }
-            while (peakLoadLog.get(j).getTime() - peakLoadLog.get(i).getTime() <= 30 * 1000) {
-                j++;
-                if (j == peakLoadLog.size()) {
-                    break;
-                }
-            }
-            int requests = j - i;
-            if (requests > maxRequests) {
-                maxRequests = requests;
-            }
-        }
 
-        return maxRequests;
+
+        return -1;
     }
 
-    public synchronized List<String> executeQuery(String query) {
-        peakLoadLog.add(new Timestamp(System.currentTimeMillis()));
+    public List<String> executeQuery(String query) {
         return QueryFactory.parse(query);
     }
 }
