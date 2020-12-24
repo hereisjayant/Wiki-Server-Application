@@ -296,6 +296,8 @@ public class Tests {
     public void testTwoThreads1() {
         FSFTBuffer<Entry> buffer = new FSFTBuffer<>(3, 1);
 
+        sleep(0.2);
+
         new Thread(() -> buffer.put(one)).start();
 
         sleep(0.5);
