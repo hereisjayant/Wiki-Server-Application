@@ -316,6 +316,12 @@ public class WikiMediator {
         return maxRequests;
     }
 
+    /**
+     * Handles structured queries
+     *
+     * @param query is a structured query that follows the grammar described in query.g4
+     * @return response for the query as a List of Strings
+     */
     public synchronized List<String> executeQuery(String query) {
         peakLoadLog.add(new Timestamp(System.currentTimeMillis()));
         return QueryFactory.parse(query);
