@@ -823,8 +823,8 @@ public class Tests {
         WikiMediator wikiMediator = new WikiMediator();
         Wiki wiki = new Wiki.Builder().build();
 
-        List<String> expectedList = pagesAuthoredBy(author1, wiki);
-        List<String> actualList = wikiMediator.executeQuery("get page where author is '2A00:23C7:2183:BE00:6C16:ABEA:9039:3A8' ");
+        List<String> expectedList = Collections.singletonList("User:Vijeethvp");
+        List<String> actualList = wikiMediator.executeQuery("get page where author is 'Vijeethvp' ");
 
         assertEquals(expectedList.size(),actualList.size());
         assertEquals(new HashSet<>(expectedList), new HashSet<>(actualList));
